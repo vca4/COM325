@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Pattern Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #080810; }
+  #app { background: #080810; color: #fff; font-family: 'Courier New', monospace; display: flex; flex-direction: column; min-height: 100vh; }
+  #header { padding: 14px 24px 10px; border-bottom: 1px solid #0f0f1f; display: flex; align-items: baseline; gap: 16px; }
+  #header .brand { font-size: 9px; letter-spacing: 5px; color: #3a3a6a; }
+  #header h1 { font-size: 11px; letter-spacing: 4px; color: #5a5a9a; font-weight: normal; }
+  #main { display: flex; flex: 1; }
+  #sidebar { width: 160px; padding: 18px 14px; border-right: 1px solid #0f0f1f; display: flex; flex-direction: column; gap: 14px; }
+  #canvas-area { flex: 1; position: relative; overflow: hidden; }
+  canvas#viz { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .freq-label { font-size: 8px; letter-spacing: 2px; color: #2a2a4a; margin-bottom: 5px; }
+  .freq-bar-bg { height: 2px; background: #0d0d20; border-radius: 1px; }
+  .freq-bar { height: 2px; border-radius: 1px; width: 0%; transition: width 0.05s; }
+  .freq-hz { font-size: 8px; color: #2a2a4a; margin-top: 3px; letter-spacing: 1px; }
+  #divider { height: 1px; background: #0f0f1f; }
+  #status { font-size: 8px; color: #2a2a5a; letter-spacing: 1px; text-align: center; margin-top: auto; padding-bottom: 4px; }
+  #modes { display: flex; flex-direction: column; gap: 3px; }
+  .mode-btn { background: none; border: none; color: #2a2a5a; font-family: 'Courier New', monospace; font-size: 8px; letter-spacing: 2px; text-align: left; cursor: pointer; padding: 3px 0; transition: color 0.2s; }
+  .mode-btn:hover { color: #7070cc; }
+  .mode-btn.active { color: #9090ff; }
+  #activate-btn { background: none; border: 1px solid #1f1f3f; color: #4040aa; font-family: 'Courier New', monospace; font-size: 8px; letter-spacing: 2px; cursor: pointer; padding: 8px 10px; transition: all 0.3s; margin-top: auto; }
+  #activate-btn:hover { border-color: #5050aa; color: #8080ee; }
+  #activate-btn.active { border-color: #9090ff; color: #9090ff; }
+  #top-bar { display: flex; border-bottom: 1px solid #0f0f1f; }
+  .top-freq { flex: 1; padding: 7px 12px; font-size: 7px; letter-spacing: 2px; color: #2a2a5a; border-right: 1px solid #0f0f1f; }
+  .top-freq:last-child { border-right: none; }
+  .top-freq .label { margin-bottom: 5px; }
+  .top-freq .bar-row { height: 2px; background: #0d0d20; border-radius: 1px; }
+  .top-freq .bar-fill { height: 2px; border-radius: 1px; width: 0%; transition: width 0.05s; }
+  .b-bass    { background: #7040ff; }
+  .b-lowmid  { background: #4060ff; }
+  .b-mid     { background: #2090ff; }
+  .b-highmid { background: #20d0cc; }
+  .b-treble  { background: #20ffaa; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div class="brand">VOICE PATTERNS</div>
+    <h1>// Pattern Generator</h1>
+  </div>
+  <div id="top-bar">
+    <div class="top-freq"><div class="label">BASS</div><div class="bar-row"><div class="bar-fill b-bass" id="tb-bass"></div></div></div>
+    <div class="top-freq"><div class="label">LOW MID</div><div class="bar-row"><div class="bar-fill b-lowmid" id="tb-lowmid"></div></div></div>
+    <div class="top-freq"><div class="label">MID</div><div class="bar-row"><div class="bar-fill b-mid" id="tb-mid"></div></div></div>
+    <div class="top-freq"><div class="label">HIGH MID</div><div class="bar-row"><div class="bar-fill b-highmid" id="tb-highmid"></div></div></div>
+    <div class="top-freq"><div class="label">TREBLE</div><div class="bar-row"><div class="bar-fill b-treble" id="tb-treble"></div></div></div>
+  </div>
+  <div id="main">
+    <div id="sidebar">
+      <div class="freq-label" id="mode-label">LISSAJOUS</div>
+      <div id="divider"></div>
+      <div class="freq-band"><div class="freq-label">BASS</div><div class="freq-bar-bg"><div class="freq-bar b-bass" id="sb-bass"></div></div><div class="freq-hz" id="hz-bass">— Hz</div></div>
+      <div class="freq-band"><div class="freq-label">LOW MID</div><div class="freq-bar-bg"><div class="freq-bar b-lowmid" id="sb-lowmid"></div></div><div class="freq-hz" id="hz-lowmid">— Hz</div></div>
+      <div class="freq-band"><div class="freq-label">MID</div><div class="freq-bar-bg"><div class="freq-bar b-mid" id="sb-mid"></div></div><div class="freq-hz" id="hz-mid">— Hz</div></div>
+      <div class="freq-band"><div class="freq-label">HIGH MID</div><div class="freq-bar-bg"><div class="freq-bar b-highmid" id="sb-highmid"></div></div><div class="freq-hz" id="hz-highmid">— Hz</div></div>
+      <div class="freq-band"><div class="freq-label">TREBLE</div><div class="freq-bar-bg"><div class="freq-bar b-treble" id="sb-treble"></div></div><div class="freq-hz" id="hz-treble">— Hz</div></div>
+      <div id="divider"></div>
+      <div id="modes">
+        <button class="mode-btn active" data-mode="lissajous">Lissajous</button>
+        <button class="mode-btn" data-mode="mandala">Mandala</button>
+        <button class="mode-btn" data-mode="constellation">Constellation</button>
+        <button class="mode-btn" data-mode="interference">Interference</button>
+        <button class="mode-btn" data-mode="all">All Modes</button>
+      </div>
+      <button id="activate-btn">Activate Mic</button>
+      <div id="status">Speak or sing into your microphone</div>
+    </div>
+    <div id="canvas-area">
+      <canvas id="viz"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('viz');
+const ctx = canvas.getContext('2d');
+let audioCtx, analyser, dataArray, micSource;
+let isActive = false;
+let currentMode = 'lissajous';
+let time = 0;
+
+const COLORS = {
+  bass:    [112, 64, 255],
+  lowmid:  [64, 96, 255],
+  mid:     [32, 144, 255],
+  highmid: [32, 208, 204],
+  treble:  [32, 255, 170],
+};
+
+const stars = Array.from({length:100},(_,i)=>({
+  tw: i/100*Math.PI*2,
+  r: 0.3+Math.random()*1.4,
+  orbit: 0.15+Math.random()*0.75,
+  speed: 0.03+Math.random()*0.05
+}));
+
+function resize() {
+  const el = document.getElementById('canvas-area');
+  canvas.width = el.clientWidth;
+  canvas.height = el.clientHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function getBands(data) {
+  const N = data.length, bin = (audioCtx.sampleRate/2)/N;
+  const avg=(lo,hi)=>{let s=0,c=0;for(let i=Math.floor(lo/bin);i<=Math.ceil(hi/bin)&&i<N;i++){s+=data[i];c++;}return c?s/c/255:0;};
+  return {bass:avg(20,250),lowmid:avg(250,500),mid:avg(500,2000),highmid:avg(2000,4000),treble:avg(4000,20000)};
+}
+
+function idleBands(t) {
+  return {
+    bass:    0.06+Math.sin(t*0.7)*0.04,
+    lowmid:  0.05+Math.sin(t*0.5+1)*0.03,
+    mid:     0.04+Math.sin(t*1.1+2)*0.025,
+    highmid: 0.03+Math.sin(t*0.9+3)*0.02,
+    treble:  0.02+Math.sin(t*1.3+4)*0.015,
+  };
+}
+
+function rgba(key, alpha) {
+  const [r,g,b]=COLORS[key]; return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function drawLissajous(b, cx, cy, r, t) {
+  const configs = [
+    {fx:2+b.bass*2, fy:3+b.mid*1.5, ph:t*0.4, col:'bass', w:1.2},
+    {fx:3+b.lowmid*2, fy:5+b.highmid, ph:t*0.6+1, col:'treble', w:0.7},
+  ];
+  configs.forEach(cfg=>{
+    ctx.beginPath();
+    for(let i=0;i<=800;i++){
+      const a=i/800*Math.PI*2;
+      const x=cx+r*Math.sin(cfg.fx*a+cfg.ph)*(0.65+b[cfg.col]*0.35);
+      const y=cy+r*Math.sin(cfg.fy*a)*(0.65+b.mid*0.35);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=rgba(cfg.col, 0.55+b.bass*0.4);
+    ctx.lineWidth=cfg.w+b.mid;
+    ctx.stroke();
+  });
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*0.08);
+  g.addColorStop(0,rgba('mid',0.6+b.mid*0.4));
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r*0.08,0,Math.PI*2); ctx.fill();
+}
+
+function drawMandala(b, cx, cy, r, t) {
+  const petals = 8+Math.round(b.bass*8);
+  for(let ring=0;ring<3;ring++){
+    const rr = r*(0.25+ring*0.22);
+    const col = ['bass','mid','treble'][ring];
+    for(let p=0;p<petals;p++){
+      const a = p/petals*Math.PI*2 + t*(0.15-ring*0.04);
+      const size = rr*0.35*(1+b[col]*0.8);
+      ctx.beginPath();
+      ctx.ellipse(cx+rr*Math.cos(a), cy+rr*Math.sin(a), size, size*0.4, a, 0, Math.PI*2);
+      ctx.strokeStyle=rgba(col, 0.2+b[col]*0.45);
+      ctx.lineWidth=0.8; ctx.stroke();
+    }
+  }
+  for(let i=0;i<petals*2;i++){
+    const a=i/(petals*2)*Math.PI*2+t*0.08;
+    const len=r*(0.15+b.highmid*0.5*Math.abs(Math.sin(a*3+t)));
+    ctx.beginPath();ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+len*Math.cos(a),cy+len*Math.sin(a));
+    ctx.strokeStyle=rgba('highmid',0.15+b.highmid*0.3);
+    ctx.lineWidth=0.5;ctx.stroke();
+  }
+  ctx.beginPath();
+  for(let i=0;i<=360;i++){
+    const a=i/360*Math.PI*2;
+    const rr=r*(0.88+b.treble*0.12)*(1+b.mid*0.08*Math.sin(a*petals+t*2));
+    const x=cx+rr*Math.cos(a),y=cy+rr*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle=rgba('treble',0.25+b.treble*0.5);
+  ctx.lineWidth=1;ctx.stroke();
+}
+
+function drawConstellation(b, cx, cy, r, t) {
+  const pts = stars.map((s,i)=>{
+    const a = s.tw + t*s.speed*(1+b.bass*2);
+    const d = Math.min(r*s.orbit*(1+b.mid*0.15*Math.sin(t*1.1+i*0.4)), r*0.92);
+    return {x:cx+d*Math.cos(a), y:cy+d*Math.sin(a), r:s.r*(1+b.treble*1.5), col:['bass','mid','highmid','treble'][i%4]};
+  });
+  const thresh = r*0.48;
+  for(let i=0;i<pts.length;i++) {
+    for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<thresh){
+        ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle=rgba(pts[i].col,(1-d/thresh)*(0.12+b.bass*0.25));
+        ctx.lineWidth=0.5;ctx.stroke();
+      }
+    }
+  }
+  pts.forEach(p=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r+b[p.col]*2,0,Math.PI*2);
+    ctx.fillStyle=rgba(p.col,0.7+b[p.col]*0.3);ctx.fill();
+    if(b[p.col]>0.2){
+      ctx.beginPath();ctx.arc(p.x,p.y,(p.r+b[p.col]*2)*2.2,0,Math.PI*2);
+      ctx.strokeStyle=rgba(p.col,(b[p.col]-0.2)*0.35);ctx.lineWidth=0.5;ctx.stroke();
+    }
+  });
+}
+
+function drawInterference(b, cx, cy, r, t) {
+  const res=6, cols=['bass','lowmid','mid','highmid','treble'];
+  for(let x=cx-r;x<=cx+r;x+=res){
+    for(let y=cy-r;y<=cy+r;y+=res){
+      const dx=x-cx, dy=y-cy, d=Math.sqrt(dx*dx+dy*dy);
+      if(d>r) continue;
+      const w1=Math.sin(d*0.06*(1+b.bass*2)-t*2.5);
+      const w2=Math.sin((dx*0.05+dy*0.07)*(1+b.mid*1.5)-t*2);
+      const w3=Math.sin(d*0.04*(1+b.highmid)-t*3.5);
+      const v=(w1+w2+w3)/3;
+      const fi=Math.floor(((v+1)/2)*4.99);
+      const [cr,cg,cb]=COLORS[cols[fi]];
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},${Math.abs(v)*(0.6+b.bass*0.4)})`;
+      ctx.fillRect(x,y,res,res);
+    }
+  }
+}
+
+function drawRegion(mode, b, ox, oy, w, h, t) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ox, oy, w, h);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(8,8,16,0.18)';
+  ctx.fillRect(ox, oy, w, h);
+  const cx=ox+w/2, cy=oy+h/2, r=Math.min(w,h)*0.42;
+  if(mode==='lissajous')         drawLissajous(b,cx,cy,r,t);
+  else if(mode==='mandala')      drawMandala(b,cx,cy,r,t);
+  else if(mode==='constellation')drawConstellation(b,cx,cy,r,t);
+  else if(mode==='interference') drawInterference(b,cx,cy,r,t);
+  ctx.restore();
+}
+
+function render(b) {
+  const W=canvas.width, H=canvas.height;
+  if(currentMode==='all'){
+    const hw=Math.floor(W/2), hh=Math.floor(H/2);
+    drawRegion('lissajous',      b, 0,  0,  hw,   hh,   time);
+    drawRegion('mandala',        b, hw, 0,  W-hw, hh,   time);
+    drawRegion('constellation',  b, 0,  hh, hw,   H-hh, time);
+    drawRegion('interference',   b, hw, hh, W-hw, H-hh, time);
+    ctx.strokeStyle='#1a1a2e'; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(hw,0);ctx.lineTo(hw,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,hh);ctx.lineTo(W,hh);ctx.stroke();
+    ctx.font='8px Courier New'; ctx.fillStyle='#2a2a5a';
+    ctx.fillText('LISSAJOUS',8,14);
+    ctx.fillText('MANDALA',hw+8,14);
+    ctx.fillText('CONSTELLATION',8,hh+14);
+    ctx.fillText('INTERFERENCE',hw+8,hh+14);
+  } else {
+    ctx.fillStyle='rgba(8,8,16,0.18)';ctx.fillRect(0,0,W,H);
+    drawRegion(currentMode,b,0,0,W,H,time);
+  }
+}
+
+function updateBars(b) {
+  const keys=['bass','lowmid','mid','highmid','treble'];
+  const hz=['80','350','1k','3k','8k'];
+  keys.forEach((k,i)=>{
+    const pct=Math.round(b[k]*100)+'%';
+    document.getElementById('sb-'+k).style.width=pct;
+    document.getElementById('tb-'+k).style.width=pct;
+    document.getElementById('hz-'+k).textContent=hz[i]+' Hz';
+  });
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  time+=0.016;
+  const b = isActive&&analyser
+    ? (analyser.getByteFrequencyData(dataArray), getBands(dataArray))
+    : idleBands(time);
+  render(b);
+  if(isActive&&analyser) updateBars(b);
+}
+
+document.querySelectorAll('.mode-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode=btn.dataset.mode;
+    document.getElementById('mode-label').textContent=btn.dataset.mode.toUpperCase();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  });
+});
+
+document.getElementById('activate-btn').addEventListener('click',async()=>{
+  if(isActive){
+    isActive=false;
+    if(micSource)micSource.disconnect();
+    if(audioCtx)audioCtx.close();
+    document.getElementById('activate-btn').textContent='Activate Mic';
+    document.getElementById('activate-btn').classList.remove('active');
+    document.getElementById('status').textContent='Speak or sing into your microphone';
+    return;
+  }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    analyser=audioCtx.createAnalyser(); analyser.fftSize=2048;
+    dataArray=new Uint8Array(analyser.frequencyBinCount);
+    micSource=audioCtx.createMediaStreamSource(stream);
+    micSource.connect(analyser);
+    isActive=true;
+    document.getElementById('activate-btn').textContent='Deactivate Mic';
+    document.getElementById('activate-btn').classList.add('active');
+    document.getElementById('status').textContent='Listening...';
+  }catch(e){
+    document.getElementById('status').textContent='Mic access denied';
+  }
+});
+
+loop();
+</script>
+</body>
+</html>
